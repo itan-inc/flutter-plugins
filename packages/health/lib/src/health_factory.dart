@@ -181,4 +181,49 @@ class HealthFactory {
     }
     return unique;
   }
+
+  Future<List<HealthDataPoint>> getStepData(
+      DateTime startDate, DateTime endDate) async {
+    final dataType = HealthDataType.STEPS;
+    if (_platformType != PlatformType.IOS) {
+      throw _HealthException(
+          dataType, 'getStepData is only iOS');
+    }
+
+    _deviceId ??= (await _deviceInfo.iosInfo).identifierForVendor;
+
+    final dataPoints = <HealthDataPoint>[];
+    final args = <String, dynamic>{
+      'dataTypeKey': _enumToString(dataType),
+      'startDate': startDate.millisecondsSinceEpoch,
+      'endDate': endDate.millisecondsSinceEpoch
+    };
+
+    final unit = _dataTypeToUnit[dataType]!;
+
+    final fetchedDataPoints = await _channel.invokeMethod('getStepsData', args);
+    if (fetchedDataPoints != null) {
+      return fetchedDataPoints.map<HealthDataPoint>((e) {
+        final num value = e['value'];
+        final DateTime from =
+        DateTime.fromMillisecondsSinceEpoch(e['date_from']);
+        final DateTime to = DateTime.fromMillisecondsSinceEpoch(e['date_to']);
+        final String sourceId = e["source_id"];
+        final String sourceName = e["source_name"];
+        return HealthDataPoint(
+          value,
+          dataType,
+          unit,
+          from,
+          to,
+          _platformType,
+          _deviceId!,
+          sourceId,
+          sourceName,
+        );
+      }).toList();
+    } else {
+      return <HealthDataPoint>[];
+    }
+  }
 }

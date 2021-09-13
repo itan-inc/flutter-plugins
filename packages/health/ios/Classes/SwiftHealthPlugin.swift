@@ -65,6 +65,10 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         else if (call.method.elementsEqual("getData")){
             getData(call: call, result: result)
         }
+
+        else if (call.method.elementsEqual("getStepsData")){
+            getStepsData(call: call, result: result)
+        }
     }
 
     func checkIfHealthDataAvailable(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -82,11 +86,11 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
             typesToRequest.insert(dataTypeLookUp(key: keyString))
         }
 
-        if #available(iOS 11.0, *) {
+        if #available(iOS 11.0, *) { 
             healthStore.requestAuthorization(toShare: nil, read: typesToRequest) { (success, error) in
                 result(success)
             }
-        } 
+        }
         else {
             result(false)// Handle the error here.
         }
@@ -197,7 +201,7 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         unitDict[SLEEP_AWAKE] = HKUnit.init(from: "")
 
         // Set up iOS 11 specific types (ordinary health data types)
-        if #available(iOS 11.0, *) { 
+        if #available(iOS 11.0, *) {
             dataTypesDict[ACTIVE_ENERGY_BURNED] = HKSampleType.quantityType(forIdentifier: .activeEnergyBurned)!
             dataTypesDict[BASAL_ENERGY_BURNED] = HKSampleType.quantityType(forIdentifier: .basalEnergyBurned)!
             dataTypesDict[BLOOD_GLUCOSE] = HKSampleType.quantityType(forIdentifier: .bloodGlucose)!
@@ -242,8 +246,44 @@ public class SwiftHealthPlugin: NSObject, FlutterPlugin {
         // Concatenate heart events and health data types (both may be empty)
         allDataTypes = Set(heartRateEventTypes + healthDataTypes)
     }
+
+    private func getStepsData(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let arguments = call.arguments as? NSDictionary
+        let startDate = (arguments?["startDate"] as? NSNumber) ?? 0
+        let endDate = (arguments?["endDate"] as? NSNumber) ?? 0
+        let dateFrom = Date(timeIntervalSince1970: startDate.doubleValue / 1000)
+        let dateTo = Date(timeIntervalSince1970: endDate.doubleValue / 1000)
+
+        let predicate = HKQuery.predicateForSamples(withStart: dateFrom,
+                                                    end: dateTo,
+                                                    options: [])
+        let calendar = Calendar.current
+        let anchorDate = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: Date())
+        let query = HKStatisticsCollectionQuery(quantityType: HKObjectType.quantityType(forIdentifier: .stepCount)!,
+                                                quantitySamplePredicate: predicate,
+                                                options: .cumulativeSum,
+                                                anchorDate: anchorDate!,
+                                                intervalComponents: DateComponents(day: 1))
+
+        var data: [NSDictionary] = []
+        query.initialResultsHandler = { _, results, _ in
+            guard let statsCollection = results else { return }
+            statsCollection.enumerateStatistics(from: dateFrom, to: dateTo) { statistics, _ in
+                if let quantity = statistics.sumQuantity() {
+                    let stepValue = floor(quantity.doubleValue(for: HKUnit.count()))
+                    data.append( [
+                        "uuid": "",
+                        "source_id": "",
+                        "source_name": "",
+                        "date_from": Int(statistics.startDate.timeIntervalSince1970 * 1000),
+                        "date_to": Int(statistics.endDate.timeIntervalSince1970 * 1000),
+                        "value": stepValue,
+                    ])
+                }
+            }
+            result(data)
+            return
+        }
+        HKHealthStore().execute(query)
+    }
 }
-
-
-
-
