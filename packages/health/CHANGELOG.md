@@ -1,3 +1,16 @@
+## 3.3.1
+* [PR #428](https://github.com/cph-cachet/flutter-plugins/pull/428) - DISTANCE_DELTA is for Android, not iOS
+* [PR #454](https://github.com/cph-cachet/flutter-plugins/pull/454) - added missing READ_ACCESS
+
+## 3.3.0
+* [PR #430](https://github.com/cph-cachet/flutter-plugins/pull/430) - Write support on Google Fit and HealthKit
+
+## 3.2.1
+* Updated `device_info_plus` version dependency
+
+## 3.2.0
+* [PR #421](https://github.com/cph-cachet/flutter-plugins/pull/421) -  added simple `HKWorkout` and `ExerciseTime` support
+
 ## 3.1.1+1
 * [PR #394](https://github.com/cph-cachet/flutter-plugins/pull/394) - added functions to request authorization
 
