@@ -258,4 +258,12 @@ class HealthFactory {
       return <HealthDataPoint>[];
     }
   }
+
+  static Future<bool> revokePermission() async {
+    // only implement for android
+    if (_platformType == PlatformType.ANDROID) {
+      return await _channel.invokeMethod('revokePermission') ?? false;
+    }
+    return false;
+  }
 }
