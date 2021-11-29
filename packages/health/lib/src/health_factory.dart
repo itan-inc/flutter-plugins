@@ -186,8 +186,7 @@ class HealthFactory {
       DateTime startDate, DateTime endDate) async {
     final dataType = HealthDataType.STEPS;
     if (_platformType != PlatformType.IOS) {
-      throw _HealthException(
-          dataType, 'getStepData is only iOS');
+      throw _HealthException(dataType, 'getStepData is only iOS');
     }
 
     _deviceId ??= (await _deviceInfo.iosInfo).identifierForVendor;
@@ -206,7 +205,7 @@ class HealthFactory {
       return fetchedDataPoints.map<HealthDataPoint>((e) {
         final num value = e['value'];
         final DateTime from =
-        DateTime.fromMillisecondsSinceEpoch(e['date_from']);
+            DateTime.fromMillisecondsSinceEpoch(e['date_from']);
         final DateTime to = DateTime.fromMillisecondsSinceEpoch(e['date_to']);
         final String sourceId = e["source_id"];
         final String sourceName = e["source_name"];
@@ -225,5 +224,13 @@ class HealthFactory {
     } else {
       return <HealthDataPoint>[];
     }
+  }
+
+  static Future<bool> revokePermission() async {
+    // only implement for android
+    if (_platformType == PlatformType.ANDROID) {
+      return await _channel.invokeMethod('revokePermission') ?? false;
+    }
+    return false;
   }
 }
