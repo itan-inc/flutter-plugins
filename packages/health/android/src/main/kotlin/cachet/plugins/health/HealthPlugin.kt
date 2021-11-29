@@ -17,6 +17,8 @@ import android.os.Handler
 import android.util.Log
 import androidx.annotation.NonNull
 import androidx.annotation.Nullable
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -223,10 +225,10 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
 
                 if (dataType != DataType.TYPE_SLEEP_SEGMENT) {
                     val response = Fitness.getHistoryClient(activity!!.applicationContext, googleSignInAccount)
-                        .readData(DataReadRequest.Builder()
-                            .read(dataType)
-                            .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                            .build())
+                            .readData(DataReadRequest.Builder()
+                                    .read(dataType)
+                                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                                    .build())
 
                     /// Fetch all data points for the specified DataType
                     val dataPoints = Tasks.await<DataReadResponse>(response).getDataSet(dataType)
@@ -324,7 +326,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
         return typesBuilder.build()
     }
 
-    /// Called when the "requestAuthorization" is invoked from Flutter 
+    /// Called when the "requestAuthorization" is invoked from Flutter
     private fun requestAuthorization(call: MethodCall, result: Result) {
         if (activity == null) {
             result.success(false)
@@ -350,11 +352,47 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
         }
     }
 
+    private fun revokePermission(call: MethodCall, result: Result) {
+        Fitness.getConfigClient(activity!!.applicationContext, getFitnessAccount())
+                .disableFit()
+                .continueWithTask {
+                    val signInOptions = GoogleSignInOptions.Builder()
+                            .addExtension(FitnessOptions.builder().build())
+                            .build()
+
+                    GoogleSignIn.getClient(activity!!.applicationContext, signInOptions).revokeAccess()
+                }
+                .addOnSuccessListener { result.success(true) }
+                .addOnFailureListener {
+                    if (!isAuthorized()) {
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+    }
+
+    private fun getFitnessAccount(): GoogleSignInAccount {
+        return GoogleSignIn.getAccountForExtension(activity!!.applicationContext, getFitnessOptions())
+    }
+
+    private fun isAuthorized(): Boolean {
+        return GoogleSignIn.hasPermissions(getFitnessAccount(), getFitnessOptions())
+    }
+
+    private fun getFitnessOptions(): FitnessOptions {
+        return FitnessOptions.builder()
+                .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
+                .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_WRITE)
+                .build()
+    }
+
     /// Handle calls from the MethodChannel
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "requestAuthorization" -> requestAuthorization(call, result)
             "getData" -> getData(call, result)
+            "revokePermission" -> revokePermission(call, result)
             else -> result.notImplemented()
         }
     }
