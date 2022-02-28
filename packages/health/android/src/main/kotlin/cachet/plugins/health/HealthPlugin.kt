@@ -15,6 +15,8 @@ import android.content.Intent
 import android.os.Handler
 import android.util.Log
 import androidx.annotation.NonNull
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
 import com.google.android.gms.fitness.data.*
 import com.google.android.gms.fitness.request.SessionReadRequest
@@ -495,7 +497,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
         mResult?.success(isGranted)
     }
 
-    /// Called when the "requestAuthorization" is invoked from Flutter 
+    /// Called when the "requestAuthorization" is invoked from Flutter
     private fun requestAuthorization(call: MethodCall, result: Result) {
         if (activity == null) {
             result.success(false)
@@ -586,6 +588,41 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
             }
         }
 
+    private fun revokePermission(call: MethodCall, result: Result) {
+        Fitness.getConfigClient(activity!!.applicationContext, getFitnessAccount())
+                .disableFit()
+                .continueWithTask {
+                    val signInOptions = GoogleSignInOptions.Builder()
+                            .addExtension(FitnessOptions.builder().build())
+                            .build()
+
+                    GoogleSignIn.getClient(activity!!.applicationContext, signInOptions).revokeAccess()
+                }
+                .addOnSuccessListener { result.success(true) }
+                .addOnFailureListener {
+                    if (!isAuthorized()) {
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+    }
+
+    private fun getFitnessAccount(): GoogleSignInAccount {
+        return GoogleSignIn.getAccountForExtension(activity!!.applicationContext, getFitnessOptions())
+    }
+
+    private fun isAuthorized(): Boolean {
+        return GoogleSignIn.hasPermissions(getFitnessAccount(), getFitnessOptions())
+    }
+
+    private fun getFitnessOptions(): FitnessOptions {
+        return FitnessOptions.builder()
+                .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
+                .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_WRITE)
+                .build()
+    }
+
     /// Handle calls from the MethodChannel
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
@@ -594,6 +631,7 @@ class HealthPlugin(private var channel: MethodChannel? = null) : MethodCallHandl
             "writeData" -> writeData(call, result)
             "getTotalStepsInInterval" -> getTotalStepsInInterval(call, result)
             "hasPermissions" -> hasPermissions(call, result)
+            "revokePermission" -> revokePermission(call, result)
             else -> result.notImplemented()
         }
     }
